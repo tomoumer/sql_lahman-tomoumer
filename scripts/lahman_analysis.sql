@@ -213,3 +213,101 @@ WHERE awardid = 'TSN Manager of the Year'
 -- HAVING SUM(g) > 10
 
 -- 8. Find all players who have had at least 3000 career hits. Report those players' names, total number of hits, and the year they were inducted into the hall of fame (If they were not inducted into the hall of fame, put a null in that column.) Note that a player being inducted into the hall of fame is indicated by a 'Y' in the **inducted** column of the halloffame table.
+
+-- WITH career AS (
+-- 	SELECT
+-- 		playerid,
+-- 		SUM(h) as career_hits
+-- 	FROM people
+-- 	LEFT JOIN batting
+-- 	USING(playerid)
+-- 	GROUP BY playerid
+-- 	HAVING SUM(h) >= 3000
+-- ),
+-- hall_inducted AS (
+-- 	SELECT
+-- 		playerid,
+-- 		yearid
+-- 	FROM halloffame
+-- 	WHERE inducted='Y'
+-- )
+-- SELECT
+-- 	playerid,
+-- 	career_hits,
+-- 	yearid AS year_inducted
+-- FROM career
+-- LEFT JOIN hall_inducted
+-- USING(playerid)
+
+-- 9. Find all players who had at least 1,000 hits for two different teams. Report those players' full names.
+
+-- WITH over_1000_hits AS (
+-- 	SELECT 
+-- 		playerid,
+-- 		teamid,
+-- 		SUM(h) as team_hits
+-- 	FROM batting
+-- 	GROUP BY playerid, teamid
+-- 	HAVING SUM(h) >= 1000
+-- )
+-- SELECT playerid,
+-- 		namefirst,
+-- 		namelast
+-- FROM over_1000_hits
+-- INNER JOIN people
+-- USING (playerid)
+-- GROUP BY playerid , namefirst, namelast
+-- HAVING COUNT(*) > 1;
+
+--10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
+-- a: I might have to double check this complex ex!
+
+-- -- at least one hr in 2016, 542 players
+-- WITH hr_in_2016 AS (
+-- 	SELECT
+-- 		playerid,
+-- 		SUM(hr) as tot_hr
+-- 	FROM batting
+-- 	WHERE yearid = 2016
+-- 		AND hr > 0
+-- 	GROUP BY playerid
+-- ),
+-- -- players with more than 10 years in league, 3475
+-- league_10 AS (
+-- 	SELECT
+-- 		playerid,
+-- 		MAX(yearid) - MIN(yearid) AS years_played
+-- 	FROM batting
+-- 	GROUP BY playerid
+-- 	HAVING (MAX(yearid) - MIN(yearid)) >= 10
+-- ),
+-- -- to get MAX, using two queries
+-- hr_by_year AS (
+-- SELECT
+-- 	playerid,
+-- 	yearid,
+-- 	SUM(hr) AS tot_hr
+-- FROM batting
+-- GROUP BY playerid, yearid
+-- ),
+-- max_hr_overall AS (
+-- SELECT
+-- 	playerid,
+-- 	MAX(tot_hr) AS max_hr
+-- FROM hr_by_year
+-- GROUP BY playerid
+-- )
+-- SELECT
+-- 	people.playerid, 
+-- 	hr_in_2016.tot_hr,
+-- 	people.namefirst,
+-- 	people.namelast
+-- FROM hr_in_2016
+-- INNER JOIN league_10
+-- USING(playerid)
+-- INNER JOIN max_hr_overall
+-- 	ON max_hr_overall.playerid = hr_in_2016.playerid
+-- 	AND max_hr_overall.max_hr = hr_in_2016.tot_hr
+-- INNER JOIN people
+-- ON hr_in_2016.playerid = people.playerid;
+
