@@ -48,40 +48,56 @@ WHERE schoolname='Vanderbilt University';
 
 -- 3. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report to 2 decimal places. Do the same for home runs per game. Do you see any trends? (NOTE: see helpful links in the README)
 -- a: it appears the average strikeouts has been steadily increasing over the years - almost 100 years later it essentially trippled!
+-- NOTE: doing an AVG, vs SUM can be different if the teams play a different number of games - SUM in a sense does a weighted average
+-- NOTE2: it also depends if we're looking at it per game, or per game PER team (with SUM we'd have to divide by 2 to get per game)
 
 -- WITH decades AS (
 -- 	SELECT generate_series(1920, 2010, 10) AS begin_decade,
 -- 		generate_series(1929, 2019, 10) AS end_decade
 -- )
 -- SELECT
--- 	begin_decade,
--- 	end_decade,
--- 	ROUND(AVG((SO+SOA)::NUMERIC / G), 2) AS average_strikeouts,
--- 	ROUND(AVG((HR+HRA)::NUMERIC / G), 2) AS average_homeruns
+-- 	--begin_decade,
+-- 	--end_decade,
+-- 	begin_decade::text || 's' AS decade, 
+-- 	--ROUND(AVG(SO+SOA)::NUMERIC / G), 2) AS average_strikeouts,
+-- 	--ROUND(AVG(HR+HRA)::NUMERIC / G), 2) AS average_homeruns
+-- 	ROUND(SUM(SO) * 1.0 / SUM(G), 2) AS average_strikeouts,
+-- 	ROUND(SUM(HR) * 1.0 / SUM(G), 2) AS average_homeruns
 -- FROM decades
 -- LEFT JOIN teams
 -- ON yearid >= begin_decade
 -- AND yearid <= end_decade
--- GROUP BY begin_decade, end_decade
--- ORDER BY begin_decade;
+-- -- ON yearid BETWEEN begin_decade AND end_decade -- alternative to above
+-- GROUP BY decade
+-- ORDER BY decade;
 
 -- 4. Find the player who had the most success stealing bases in 2016, where __success__ is measured as the percentage of stolen base attempts which are successful. (A stolen base attempt results either in a stolen base or being caught stealing.) Consider only players who attempted _at least_ 20 stolen bases. Report the players' names, number of stolen bases, number of attempts, and stolen base percentage.
 -- note: attempts are stolen bases (sb) + caught stealing (cs). By groupingby playerid I also ensured that the resulting join with those limits doesn't have duplicate players (when they played for multiple teams)
 -- A: Chris Owings
+-- NOTE, needed to group in batting because same player might change teams
 
+-- WITH full_batting AS(
+-- 	SELECT
+-- 		playerid,
+-- 		SUM(sb) AS sb,
+-- 		SUM(cs) AS cs,
+-- 		SUM(sb) + SUM(cs) AS attempts
+-- 	FROM batting
+-- 	WHERE yearid=2016
+-- 	GROUP BY playerid
+-- )
 -- SELECT
 -- 	namefirst,
 -- 	namelast,
--- 	sb AS stolen_bases,
--- 	sb+cs AS num_attempts,
--- 	ROUND(100.*sb/(sb+cs),2) AS stolen_percentage
+-- 	sb,
+-- 	attempts,
+-- 	ROUND(100.*sb/ attempts,2) AS stolen_percentage
 -- FROM people
--- INNER JOIN batting
+-- INNER JOIN full_batting
 -- USING(playerid)
--- WHERE yearid=2016
--- 	AND sb + cs >= 20
+-- WHERE attempts >= 20
 -- ORDER BY stolen_percentage DESC;
--- GROUP BY playerid;
+
 
 -- 5. From 1970 to 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion; determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 to 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 -- A: largest wins while not winning world 116, smallest wins while winning world is 63 
@@ -242,7 +258,7 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 9. Find all players who had at least 1,000 hits for two different teams. Report those players' full names.
 
 -- WITH over_1000_hits AS (
--- 	SELECT 
+-- 	SELECT
 -- 		playerid,
 -- 		teamid,
 -- 		SUM(h) as team_hits
@@ -274,12 +290,13 @@ WHERE awardid = 'TSN Manager of the Year'
 -- ),
 -- -- players with more than 10 years in league, 3475
 -- league_10 AS (
--- 	SELECT
+-- 	SELECT DISTINCT
 -- 		playerid,
--- 		MAX(yearid) - MIN(yearid) AS years_played
+-- 		COUNT(DISTINCT yearid)
+-- 		--using 'MAX(yearid) - MIN(yearid) AS years_played' and 'HAVING (MAX(yearid) - MIN(yearid)) >= 10' is not correct, as it doesn't account for the fact that some people could have played over a span of 10 years, but not actually active the whole time
 -- 	FROM batting
 -- 	GROUP BY playerid
--- 	HAVING (MAX(yearid) - MIN(yearid)) >= 10
+-- 	HAVING COUNT(DISTINCT yearid) >= 10
 -- ),
 -- -- to get MAX, using two queries
 -- hr_by_year AS (
@@ -311,3 +328,167 @@ WHERE awardid = 'TSN Manager of the Year'
 -- INNER JOIN people
 -- ON hr_in_2016.playerid = people.playerid;
 
+-- ====== BONUS QUESTIONS
+
+-- 1. In this question, you'll get to practice correlated subqueries and learn about the LATERAL keyword. Note: This could be done using window functions, but we'll do it in a different way in order to revisit correlated subqueries and see another keyword - LATERAL.
+
+-- a. First, write a query utilizing a correlated subquery to find the team with the most wins from each league in 2016.
+
+-- SELECT DISTINCT 
+-- 	lgid,
+-- 	(SELECT teamid 
+-- 	FROM teams
+-- 	WHERE yearid = 2016
+-- 	AND lgwin = 'Y'
+-- 	AND lgid = t.lgid) AS teamid
+-- FROM teams t
+-- WHERE yearid = 2016;
+
+-- b. One downside to using correlated subqueries is that you can only return exactly one row and one column. This means, for example that if we wanted to pull in not just the teamid but also the number of wins, we couldn't do so using just a single subquery. (Try it and see the error you get). Add another correlated subquery to your query on the previous part so that your result shows not just the teamid but also the number of wins by that team.
+
+-- SELECT DISTINCT 
+-- 	lgid,
+-- 	(SELECT teamid
+-- 	FROM teams
+-- 	WHERE yearid = 2016
+-- 	AND lgwin = 'Y'
+-- 	AND lgid = t.lgid) AS teamid,
+-- 	(SELECT w
+-- 	FROM teams
+-- 	WHERE yearid = 2016
+-- 	AND lgwin = 'Y'
+-- 	AND lgid = t.lgid) AS wins
+-- FROM teams t
+-- WHERE yearid = 2016;
+
+-- ======= BONUS - window functions
+
+-- Question 1a: Warmup Question
+-- Write a query which retrieves each teamid and number of wins (w) for the 2016 season. Apply three window functions to the number of wins (ordered in descending order) - ROW_NUMBER, RANK, AND DENSE_RANK. Compare the output from these three functions. What do you notice?
+-- a: row_number simply numbers them; rank and dense_rank have ties and between them it changes what the next number is (e.g. rank will do 2-2-4, dense_rank 2-2-3)
+
+-- SELECT
+-- 	teamid,
+-- 	w AS wins,
+-- 	ROW_NUMBER() OVER(ORDER BY w DESC),
+-- 	RANK() OVER(ORDER BY w DESC),
+-- 	DENSE_RANK() OVER(ORDER BY w DESC)
+-- FROM teams t
+-- WHERE yearid = 2016;
+
+-- Question 1b: 
+-- Which team has finished in last place in its division (i.e. with the least number of wins) the most number of times? A team's division is indicated by the divid column in the teams table.
+
+-- WITH division_ranking AS (
+-- SELECT teamid,
+-- 	divid,
+-- 	w AS wins,
+-- 	RANK() OVER(PARTITION BY divid
+--				ORDER BY w)
+-- FROM teams t
+-- WHERE divid IS NOT NULL
+-- )
+-- SELECT *
+-- FROM division_ranking
+-- WHERE rank=1;
+
+-- Question 2a: 
+-- Barry Bonds has the record for the highest career home runs, with 762. Write a query which returns, for each season of Bonds' career the total number of seasons he had played and his total career home runs at the end of that season. (Barry Bonds' playerid is bondsba01.)
+
+-- SELECT playerid,
+-- 		yearid,
+-- 	RANK() OVER(PARTITION BY playerid
+-- 					  ORDER BY yearid) AS num_seasons_played,
+-- 	SUM(hr) OVER(PARTITION BY playerid
+-- 				 ORDER BY yearid) AS career_total_hr
+-- FROM batting
+-- WHERE playerid = 'bondsba01';
+
+-- Question 2b:
+-- How many players at the end of the 2016 season were on pace to beat Barry Bonds' record? For this question, we will consider a player to be on pace to beat Bonds' record if they have more home runs than Barry Bonds had the same number of seasons into his career. 
+
+-- NOTE: have to use dense rank as some players switch teams and appear multiple times for same season
+
+-- WITH ranked_players AS (
+-- 	SELECT playerid,
+-- 		yearid,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS career_total_hr
+-- 	FROM batting
+-- 	WHERE playerid <> 'bondsba01'
+-- ),
+-- ranked_bondsba AS (
+-- 	SELECT playerid,
+-- 			yearid,
+-- 		RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS bonds_total_hr
+-- 	FROM batting
+-- 	WHERE playerid = 'bondsba01'
+-- )
+-- SELECT COUNT(DISTINCT rp.playerid)
+-- 	/* these rows were for verification
+-- 	rp.num_seasons_played,
+-- 	rp.career_total_hr,
+-- 	rb.bonds_total_hr*/
+-- FROM ranked_players rp
+-- LEFT JOIN ranked_bondsba rb
+-- USING(num_seasons_played)
+-- WHERE career_total_hr > bonds_total_hr
+-- AND rp.yearid=2016;
+
+-- #### Question 2c: 
+-- Were there any players who 20 years into their career who had hit more home runs at that point into their career than Barry Bonds had hit 20 years into his career? 
+-- a: yes, aaronha01, or, Hank Aaron
+
+-- WITH ranked_players AS (
+-- 	SELECT playerid,
+-- 		yearid,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS career_total_hr
+-- 	FROM batting
+-- 	WHERE playerid <> 'bondsba01'
+-- ),
+-- ranked_bondsba AS (
+-- 	SELECT playerid,
+-- 			yearid,
+-- 		RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS bonds_total_hr
+-- 	FROM batting
+-- 	WHERE playerid = 'bondsba01'
+-- )
+-- SELECT 
+-- 	p.namefirst,
+-- 	p.namelast,
+-- 	rp.playerid,
+-- 	rp.num_seasons_played,
+-- 	rp.career_total_hr,
+-- 	rb.bonds_total_hr
+-- FROM ranked_players rp
+-- INNER JOIN ranked_bondsba rb
+-- USING(num_seasons_played)
+-- INNER JOIN people p
+-- ON rp.playerid=p.playerid
+-- WHERE num_seasons_played = 20
+-- AND career_total_hr > bonds_total_hr
+
+-- Question 3: Anomalous Seasons
+-- Find the player who had the most anomalous season in terms of number of home runs hit. To do this, find the player who has the largest gap between the number of home runs hit in a season and the 5-year moving average number of home runs if we consider the 5-year window centered at that year (the window should include that year, the two years prior and the two years after).
+-- a: trumbma01 with 33.20
+
+-- SELECT playerid,
+-- 		yearid,
+-- 		hr,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		ROUND(AVG(hr) OVER(ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),2) AS five_yr_hr,
+-- 		hr - ROUND(AVG(hr) OVER(ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),2) AS difference
+-- FROM batting
+-- ORDER BY difference DESC
