@@ -492,3 +492,79 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 		hr - ROUND(AVG(hr) OVER(ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),2) AS difference
 -- FROM batting
 -- ORDER BY difference DESC
+
+--## Question 4: Players Playing for one Team
+--For this question, we'll just consider players that appear in the batting table.
+--#### Question 4a: 
+--Warmup: How many players played at least 10 years in the league and played for exactly one team? (For this question, exclude any players who played in the 2016 season). Who had the longest career with a single team? (You can probably answer this question without needing to use a window function.)
+-- a: 156 players
+-- a2: Carl Yastrzemski and Brooks Robinson
+
+-- WITH long_career AS (
+-- SELECT
+-- 	playerid,
+-- 	COUNT(DISTINCT yearid) AS career_length
+-- FROM batting
+-- GROUP BY playerid
+-- HAVING COUNT(DISTINCT yearid) >= 10
+-- 	AND COUNT(DISTINCT teamid) = 1
+-- )
+-- SELECT
+-- 	playerid,
+-- 	namefirst,
+-- 	namelast,
+-- 	career_length,
+-- 	RANK() OVER(ORDER BY career_length DESC)
+-- FROM long_career
+-- INNER JOIN people
+-- USING(playerid)
+-- WHERE playerid NOT IN (
+-- 	SELECT playerid
+-- 	FROM batting
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- );
+
+
+--#### Question 4b: 
+--Some players start and end their careers with the same team but play for other teams in between. For example, Barry Zito started his career with the Oakland Athletics, moved to the San Francisco Giants for 7 seasons before returning to the Oakland Athletics for his final season. How many players played at least 10 years in the league and start and end their careers with the same team but played for at least one other team during their career? For this question, exclude any players who played in the 2016 season.
+-- a: I think 2939
+
+-- WITH long_career AS (
+-- 	SELECT
+-- 		playerid,
+-- 		COUNT(DISTINCT yearid) AS career_length
+-- 	FROM batting
+-- 	GROUP BY playerid
+-- 	HAVING COUNT(DISTINCT yearid) >= 10
+-- 		AND COUNT(DISTINCT teamid) > 1
+-- ),
+-- begin_end_career AS (
+-- 	SELECT
+-- 		playerid,
+-- 		FIRST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid) AS first_team,
+-- 		LAST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid) AS last_team
+-- 	FROM batting
+-- ),
+-- sameteam AS (
+-- 	SELECT DISTINCT playerid
+-- 	FROM begin_end_career
+-- 	WHERE first_team=last_team
+-- )
+-- SELECT
+-- 	playerid,
+-- 	namefirst,
+-- 	namelast,
+-- 	career_length,
+-- 	RANK() OVER(ORDER BY career_length DESC)
+-- FROM long_career
+-- INNER JOIN sameteam
+-- USING(playerid)
+-- INNER JOIN people
+-- USING(playerid)
+-- WHERE playerid NOT IN (
+-- 	SELECT playerid
+-- 	FROM batting
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- );
