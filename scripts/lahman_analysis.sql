@@ -109,7 +109,10 @@ WHERE schoolname='Vanderbilt University';
 -- WHERE yearid BETWEEN 1970 AND 2016
 -- 	AND wswin ='N';
 
--- SELECT *
+-- SELECT
+-- 	yearid,
+-- 	teamid,
+-- 	w
 -- FROM teams
 -- WHERE yearid BETWEEN 1970 AND 2016
 -- 	AND wswin ='Y'
@@ -132,18 +135,18 @@ WHERE schoolname='Vanderbilt University';
 -- 		MAX(W) AS max_w
 -- 	FROM teams
 -- 	WHERE yearid BETWEEN 1970 AND 2016
--- 		AND yearid <> 1981
+-- 		--AND yearid <> 1981
 -- 	GROUP BY yearid
 -- )	
 -- SELECT 
--- 	SUM(CASE WHEN (max_w IS NOT NULL AND wswin ='Y') THEN 1 END) AS win_win,
--- 	ROUND(100.* SUM(CASE WHEN (max_w IS NOT NULL AND wswin ='Y') THEN 1 END) / (2016 - 1970),2) AS fraction_win
+-- 	SUM(CASE WHEN wswin ='Y' THEN 1 ELSE 0 END) AS win_win,
+-- 	ROUND(AVG(CASE WHEN wswin ='Y' THEN 1 ELSE 0 END),2) AS fraction_win
 -- FROM teams t
 -- LEFT JOIN year_wins
 -- ON t.yearid = year_wins.yearid
--- 	AND t.W = year_wins.max_w;
+-- 	AND t.W = year_wins.max_w
+-- WHERE max_w IS NOT NULL;
 
--- SUM(CASE WHEN (max_w IS NOT NULL) THEN 1 END) doesnt work because there are multiple teams with max wins
 
 /* Monica's code
 WITH w_rank AS(	SELECT teamid,
@@ -193,15 +196,14 @@ WHERE awardid = 'TSN Manager of the Year'
 */
 
 -- SELECT
--- 	namefirst,
--- 	namelast,
+-- 	namefirst || ' ' || namelast AS full_name,
 -- 	awmg.yearid,
 -- 	awmg.lgid,
 -- 	teamid
 -- FROM awardsmanagers AS awmg
--- LEFT JOIN people
+-- INNER JOIN people
 -- USING(playerid)
--- LEFT JOIN managers AS m
+-- INNER JOIN managers AS m
 -- ON awmg.playerid = m.playerid
 -- 	AND awmg.yearid = m.yearid
 -- WHERE (awmg.playerid, awmg.awardid) IN (
@@ -212,21 +214,53 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 		AND lgid IN ('NL','AL')
 -- 	GROUP BY playerid, awardid
 -- 	HAVING COUNT( DISTINCT lgid) = 2
--- )
+-- );
 
 -- 7. Which pitcher was the least efficient in 2016 in terms of salary / strikeouts? Only consider pitchers who started at least 10 games (across all teams). Note that pitchers often play for more than one team in a season, so be sure that you are counting all stats for each player.
 
+
+-- the code below is wrong, because for some reason some players don't have reported salaries for certain teamms that they played on! so you have to group by playerid in each table separately
+/*SELECT 
+	playerid,
+	SUM(so) AS tot_strikeouts,
+	SUM(salary)::numeric::money AS tot_salary,
+	SUM(salary)::numeric::money / SUM(so) AS salary_strike
+FROM pitching p
+LEFT JOIN salaries s
+USING (playerid)
+WHERE p.yearid = 2016
+ 	AND s.yearid = 2016
+GROUP BY playerid
+HAVING SUM(gs) > 10
+ORDER BY salary_strike DESC;
+*/
+
+-- Michael's code, avoiding double counting
+-- WITH full_pitching AS (
+-- 	SELECT 
+-- 		playerid,
+-- 		SUM(so) AS so
+-- 	FROM pitching
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- 	HAVING SUM(gs) >= 10
+-- ),
+-- full_salary AS (
+-- 	SELECT
+-- 		playerid,
+-- 		SUM(salary) AS salary
+-- 	FROM salaries
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- )
 -- SELECT 
--- 	playerid,
--- 	SUM(so) AS tot_strikeouts,
--- 	SUM(salary) AS tot_salary
--- FROM pitching p
--- LEFT JOIN salaries
--- USING (playerid)
--- WHERE p.yearid = 2016
---  	AND salaries.yearid = 2016
--- GROUP BY playerid
--- HAVING SUM(g) > 10
+-- 	namefirst || ' ' || namelast AS fullname,
+-- 	salary::numeric::MONEY / so AS so_efficiency
+-- FROM full_pitching
+-- NATURAL JOIN full_salary
+-- INNER JOIN people
+-- USING(playerid)
+-- ORDER BY so_efficiency DESC;
 
 -- 8. Find all players who have had at least 3000 career hits. Report those players' names, total number of hits, and the year they were inducted into the hall of fame (If they were not inducted into the hall of fame, put a null in that column.) Note that a player being inducted into the hall of fame is indicated by a 'Y' in the **inducted** column of the halloffame table.
 
@@ -234,9 +268,7 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 	SELECT
 -- 		playerid,
 -- 		SUM(h) as career_hits
--- 	FROM people
--- 	LEFT JOIN batting
--- 	USING(playerid)
+-- 	FROM batting
 -- 	GROUP BY playerid
 -- 	HAVING SUM(h) >= 3000
 -- ),
@@ -248,12 +280,16 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 	WHERE inducted='Y'
 -- )
 -- SELECT
--- 	playerid,
+-- 	namefirst || ' ' || namelast AS full_name,
 -- 	career_hits,
 -- 	yearid AS year_inducted
 -- FROM career
 -- LEFT JOIN hall_inducted
 -- USING(playerid)
+-- INNER JOIN people
+-- USING(playerid)
+-- ORDER BY year_inducted;
+
 
 -- 9. Find all players who had at least 1,000 hits for two different teams. Report those players' full names.
 
@@ -266,9 +302,8 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 	GROUP BY playerid, teamid
 -- 	HAVING SUM(h) >= 1000
 -- )
--- SELECT playerid,
--- 		namefirst,
--- 		namelast
+-- SELECT 
+-- 	namefirst || ' ' || namelast AS full_name
 -- FROM over_1000_hits
 -- INNER JOIN people
 -- USING (playerid)
@@ -278,11 +313,11 @@ WHERE awardid = 'TSN Manager of the Year'
 --10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
 -- a: I might have to double check this complex ex!
 
--- -- at least one hr in 2016, 542 players
+-- at least one hr in 2016, 542 players
 -- WITH hr_in_2016 AS (
 -- 	SELECT
 -- 		playerid,
--- 		SUM(hr) as tot_hr
+-- 		SUM(hr) as hr
 -- 	FROM batting
 -- 	WHERE yearid = 2016
 -- 		AND hr > 0
@@ -303,30 +338,29 @@ WHERE awardid = 'TSN Manager of the Year'
 -- SELECT
 -- 	playerid,
 -- 	yearid,
--- 	SUM(hr) AS tot_hr
+-- 	SUM(hr) AS hr
 -- FROM batting
 -- GROUP BY playerid, yearid
 -- ),
 -- max_hr_overall AS (
 -- SELECT
 -- 	playerid,
--- 	MAX(tot_hr) AS max_hr
+-- 	MAX(hr) AS hr
 -- FROM hr_by_year
 -- GROUP BY playerid
 -- )
 -- SELECT
 -- 	people.playerid, 
--- 	hr_in_2016.tot_hr,
+-- 	hr_in_2016.hr,
 -- 	people.namefirst,
 -- 	people.namelast
 -- FROM hr_in_2016
 -- INNER JOIN league_10
 -- USING(playerid)
 -- INNER JOIN max_hr_overall
--- 	ON max_hr_overall.playerid = hr_in_2016.playerid
--- 	AND max_hr_overall.max_hr = hr_in_2016.tot_hr
+-- USING(playerid, hr)
 -- INNER JOIN people
--- ON hr_in_2016.playerid = people.playerid;
+-- USING(playerid);
 
 -- ====== BONUS QUESTIONS
 
@@ -528,7 +562,7 @@ WHERE awardid = 'TSN Manager of the Year'
 
 --#### Question 4b: 
 --Some players start and end their careers with the same team but play for other teams in between. For example, Barry Zito started his career with the Oakland Athletics, moved to the San Francisco Giants for 7 seasons before returning to the Oakland Athletics for his final season. How many players played at least 10 years in the league and start and end their careers with the same team but played for at least one other team during their career? For this question, exclude any players who played in the 2016 season.
--- a: I think 2939
+-- a: I think 200
 
 -- WITH long_career AS (
 -- 	SELECT
@@ -542,8 +576,10 @@ WHERE awardid = 'TSN Manager of the Year'
 -- begin_end_career AS (
 -- 	SELECT
 -- 		playerid,
+-- 		-- get the first team the player played for
 -- 		FIRST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid) AS first_team,
--- 		LAST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid) AS last_team
+-- 		-- get last team player played for (using LAST_VALUE does not behave as I expected; stops at current row)
+-- 		FIRST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid DESC) AS last_team
 -- 	FROM batting
 -- ),
 -- sameteam AS (
@@ -555,8 +591,7 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 	playerid,
 -- 	namefirst,
 -- 	namelast,
--- 	career_length,
--- 	RANK() OVER(ORDER BY career_length DESC)
+-- 	career_length
 -- FROM long_career
 -- INNER JOIN sameteam
 -- USING(playerid)
@@ -568,3 +603,49 @@ WHERE awardid = 'TSN Manager of the Year'
 -- 	WHERE yearid = 2016
 -- 	GROUP BY playerid
 -- );
+
+-- ## Question 5: Streaks
+-- #### Question 5a: 
+-- How many times did a team win the World Series in consecutive years?
+-- a: 22 times
+
+-- WITH team_wins AS (
+-- 	SELECT
+-- 		yearid,
+-- 		teamid,
+-- 		wswin,
+-- 		LAG(wswin,1) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_last
+-- 	FROM teams
+-- )
+-- SELECT COUNT(*)
+-- FROM team_wins
+-- WHERE wswin='Y'
+-- 	AND wswin_last ='Y';
+
+-- #### Question 5b: 
+-- What is the longest steak of a team winning the World Series? Write a query that produces this result rather than scanning the output of your previous answer.
+-- a: kind of cheating by slowly adding lag .. 5 years in a row for NYA
+
+-- WITH team_wins AS (
+-- 	SELECT
+-- 		yearid,
+-- 		teamid,
+-- 		wswin,
+-- 		LAG(wswin,1) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_last,
+-- 		LAG(wswin,2) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_2nd_last,
+-- 		LAG(wswin,3) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_3rd_last,
+-- 		LAG(wswin,4) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_4th_last,
+-- 	LAG(wswin,5) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_5th_last
+-- 	FROM teams
+-- )
+-- SELECT *
+-- FROM team_wins
+-- WHERE wswin='Y'
+-- 	AND wswin_last ='Y'
+-- 	AND wswin_2nd_last = 'Y'
+-- 	AND wswin_3rd_last = 'Y'
+-- 	AND wswin_4th_last = 'Y'
+
+-- #### Question 5c: 
+-- A team made the playoffs in a year if either divwin, wcwin, or lgwin will are equal to 'Y'. Which team has the longest streak of making the playoffs? 
+
