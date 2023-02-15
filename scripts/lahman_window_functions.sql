@@ -1,0 +1,255 @@
+-- ======= BONUS - window functions
+
+-- Question 1a: Warmup Question
+-- Write a query which retrieves each teamid and number of wins (w) for the 2016 season. Apply three window functions to the number of wins (ordered in descending order) - ROW_NUMBER, RANK, AND DENSE_RANK. Compare the output from these three functions. What do you notice?
+-- a: row_number simply numbers them; rank and dense_rank have ties and between them it changes what the next number is (e.g. rank will do 2-2-4, dense_rank 2-2-3)
+
+-- SELECT
+-- 	teamid,
+-- 	w AS wins,
+-- 	ROW_NUMBER() OVER(ORDER BY w DESC),
+-- 	RANK() OVER(ORDER BY w DESC),
+-- 	DENSE_RANK() OVER(ORDER BY w DESC)
+-- FROM teams t
+-- WHERE yearid = 2016;
+
+-- Question 1b: 
+-- Which team has finished in last place in its division (i.e. with the least number of wins) the most number of times? A team's division is indicated by the divid column in the teams table.
+
+-- WITH division_ranking AS (
+-- SELECT teamid,
+-- 	divid,
+-- 	w AS wins,
+-- 	RANK() OVER(PARTITION BY divid
+--				ORDER BY w)
+-- FROM teams t
+-- WHERE divid IS NOT NULL
+-- )
+-- SELECT *
+-- FROM division_ranking
+-- WHERE rank=1;
+
+-- Question 2a: 
+-- Barry Bonds has the record for the highest career home runs, with 762. Write a query which returns, for each season of Bonds' career the total number of seasons he had played and his total career home runs at the end of that season. (Barry Bonds' playerid is bondsba01.)
+
+-- SELECT playerid,
+-- 		yearid,
+-- 	RANK() OVER(PARTITION BY playerid
+-- 					  ORDER BY yearid) AS num_seasons_played,
+-- 	SUM(hr) OVER(PARTITION BY playerid
+-- 				 ORDER BY yearid) AS career_total_hr
+-- FROM batting
+-- WHERE playerid = 'bondsba01';
+
+-- Question 2b:
+-- How many players at the end of the 2016 season were on pace to beat Barry Bonds' record? For this question, we will consider a player to be on pace to beat Bonds' record if they have more home runs than Barry Bonds had the same number of seasons into his career. 
+
+-- NOTE: have to use dense rank as some players switch teams and appear multiple times for same season
+
+-- WITH ranked_players AS (
+-- 	SELECT playerid,
+-- 		yearid,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS career_total_hr
+-- 	FROM batting
+-- 	WHERE playerid <> 'bondsba01'
+-- ),
+-- ranked_bondsba AS (
+-- 	SELECT playerid,
+-- 			yearid,
+-- 		RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS bonds_total_hr
+-- 	FROM batting
+-- 	WHERE playerid = 'bondsba01'
+-- )
+-- SELECT COUNT(DISTINCT rp.playerid)
+-- 	/* these rows were for verification
+-- 	rp.num_seasons_played,
+-- 	rp.career_total_hr,
+-- 	rb.bonds_total_hr*/
+-- FROM ranked_players rp
+-- LEFT JOIN ranked_bondsba rb
+-- USING(num_seasons_played)
+-- WHERE career_total_hr > bonds_total_hr
+-- AND rp.yearid=2016;
+
+-- #### Question 2c: 
+-- Were there any players who 20 years into their career who had hit more home runs at that point into their career than Barry Bonds had hit 20 years into his career? 
+-- a: yes, aaronha01, or, Hank Aaron
+
+-- WITH ranked_players AS (
+-- 	SELECT playerid,
+-- 		yearid,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS career_total_hr
+-- 	FROM batting
+-- 	WHERE playerid <> 'bondsba01'
+-- ),
+-- ranked_bondsba AS (
+-- 	SELECT playerid,
+-- 			yearid,
+-- 		RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		SUM(hr) OVER(PARTITION BY playerid
+-- 					 ORDER BY yearid) AS bonds_total_hr
+-- 	FROM batting
+-- 	WHERE playerid = 'bondsba01'
+-- )
+-- SELECT 
+-- 	p.namefirst,
+-- 	p.namelast,
+-- 	rp.playerid,
+-- 	rp.num_seasons_played,
+-- 	rp.career_total_hr,
+-- 	rb.bonds_total_hr
+-- FROM ranked_players rp
+-- INNER JOIN ranked_bondsba rb
+-- USING(num_seasons_played)
+-- INNER JOIN people p
+-- ON rp.playerid=p.playerid
+-- WHERE num_seasons_played = 20
+-- AND career_total_hr > bonds_total_hr
+
+-- Question 3: Anomalous Seasons
+-- Find the player who had the most anomalous season in terms of number of home runs hit. To do this, find the player who has the largest gap between the number of home runs hit in a season and the 5-year moving average number of home runs if we consider the 5-year window centered at that year (the window should include that year, the two years prior and the two years after).
+-- a: trumbma01 with 33.20
+
+-- SELECT playerid,
+-- 		yearid,
+-- 		hr,
+-- 		DENSE_RANK() OVER(PARTITION BY playerid
+-- 						  ORDER BY yearid) AS num_seasons_played,
+-- 		ROUND(AVG(hr) OVER(ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),2) AS five_yr_hr,
+-- 		hr - ROUND(AVG(hr) OVER(ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),2) AS difference
+-- FROM batting
+-- ORDER BY difference DESC
+
+--## Question 4: Players Playing for one Team
+--For this question, we'll just consider players that appear in the batting table.
+--#### Question 4a: 
+--Warmup: How many players played at least 10 years in the league and played for exactly one team? (For this question, exclude any players who played in the 2016 season). Who had the longest career with a single team? (You can probably answer this question without needing to use a window function.)
+-- a: 156 players
+-- a2: Carl Yastrzemski and Brooks Robinson
+
+-- WITH long_career AS (
+-- SELECT
+-- 	playerid,
+-- 	COUNT(DISTINCT yearid) AS career_length
+-- FROM batting
+-- GROUP BY playerid
+-- HAVING COUNT(DISTINCT yearid) >= 10
+-- 	AND COUNT(DISTINCT teamid) = 1
+-- )
+-- SELECT
+-- 	playerid,
+-- 	namefirst,
+-- 	namelast,
+-- 	career_length,
+-- 	RANK() OVER(ORDER BY career_length DESC)
+-- FROM long_career
+-- INNER JOIN people
+-- USING(playerid)
+-- WHERE playerid NOT IN (
+-- 	SELECT playerid
+-- 	FROM batting
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- );
+
+
+--#### Question 4b: 
+--Some players start and end their careers with the same team but play for other teams in between. For example, Barry Zito started his career with the Oakland Athletics, moved to the San Francisco Giants for 7 seasons before returning to the Oakland Athletics for his final season. How many players played at least 10 years in the league and start and end their careers with the same team but played for at least one other team during their career? For this question, exclude any players who played in the 2016 season.
+-- a: I think 200
+
+-- WITH long_career AS (
+-- 	SELECT
+-- 		playerid,
+-- 		COUNT(DISTINCT yearid) AS career_length
+-- 	FROM batting
+-- 	GROUP BY playerid
+-- 	HAVING COUNT(DISTINCT yearid) >= 10
+-- 		AND COUNT(DISTINCT teamid) > 1
+-- ),
+-- begin_end_career AS (
+-- 	SELECT
+-- 		playerid,
+-- 		-- get the first team the player played for
+-- 		FIRST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid) AS first_team,
+-- 		-- get last team player played for (using LAST_VALUE does not behave as I expected; stops at current row)
+-- 		FIRST_VALUE(teamid) OVER(PARTITION BY playerid ORDER BY yearid DESC) AS last_team
+-- 	FROM batting
+-- ),
+-- sameteam AS (
+-- 	SELECT DISTINCT playerid
+-- 	FROM begin_end_career
+-- 	WHERE first_team=last_team
+-- )
+-- SELECT
+-- 	playerid,
+-- 	namefirst,
+-- 	namelast,
+-- 	career_length
+-- FROM long_career
+-- INNER JOIN sameteam
+-- USING(playerid)
+-- INNER JOIN people
+-- USING(playerid)
+-- WHERE playerid NOT IN (
+-- 	SELECT playerid
+-- 	FROM batting
+-- 	WHERE yearid = 2016
+-- 	GROUP BY playerid
+-- );
+
+-- ## Question 5: Streaks
+-- #### Question 5a: 
+-- How many times did a team win the World Series in consecutive years?
+-- a: 22 times
+
+-- WITH team_wins AS (
+-- 	SELECT
+-- 		yearid,
+-- 		teamid,
+-- 		wswin,
+-- 		LAG(wswin,1) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_last
+-- 	FROM teams
+-- )
+-- SELECT COUNT(*)
+-- FROM team_wins
+-- WHERE wswin='Y'
+-- 	AND wswin_last ='Y';
+
+-- #### Question 5b: 
+-- What is the longest steak of a team winning the World Series? Write a query that produces this result rather than scanning the output of your previous answer.
+-- a: kind of cheating by slowly adding lag .. 5 years in a row for NYA
+
+-- WITH team_wins AS (
+-- 	SELECT
+-- 		yearid,
+-- 		teamid,
+-- 		wswin,
+-- 		LAG(wswin,1) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_last,
+-- 		LAG(wswin,2) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_2nd_last,
+-- 		LAG(wswin,3) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_3rd_last,
+-- 		LAG(wswin,4) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_4th_last,
+-- 	LAG(wswin,5) OVER(PARTITION BY teamid ORDER BY yearid) AS wswin_5th_last
+-- 	FROM teams
+-- )
+-- SELECT *
+-- FROM team_wins
+-- WHERE wswin='Y'
+-- 	AND wswin_last ='Y'
+-- 	AND wswin_2nd_last = 'Y'
+-- 	AND wswin_3rd_last = 'Y'
+-- 	AND wswin_4th_last = 'Y'
+
+
+-- #### Question 5c: 
+-- A team made the playoffs in a year if either divwin, wcwin, or lgwin will are equal to 'Y'. Which team has the longest streak of making the playoffs? 
+
