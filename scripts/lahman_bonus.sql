@@ -30,3 +30,5 @@
 -- 	AND lgid = t.lgid) AS wins
 -- FROM teams t
 -- WHERE yearid = 2016;
+
+-- 

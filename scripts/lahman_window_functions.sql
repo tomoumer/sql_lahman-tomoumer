@@ -17,13 +17,14 @@
 -- Which team has finished in last place in its division (i.e. with the least number of wins) the most number of times? A team's division is indicated by the divid column in the teams table.
 
 -- WITH division_ranking AS (
--- SELECT teamid,
--- 	divid,
--- 	w AS wins,
--- 	RANK() OVER(PARTITION BY divid
---				ORDER BY w)
--- FROM teams t
--- WHERE divid IS NOT NULL
+-- 	SELECT 
+-- 		teamid,
+-- 		divid,
+-- 		w AS wins,
+-- 		RANK() OVER(PARTITION BY divid
+-- 					ORDER BY w)
+-- 	FROM teams t
+-- 	WHERE divid IS NOT NULL
 -- )
 -- SELECT *
 -- FROM division_ranking
@@ -32,8 +33,9 @@
 -- Question 2a: 
 -- Barry Bonds has the record for the highest career home runs, with 762. Write a query which returns, for each season of Bonds' career the total number of seasons he had played and his total career home runs at the end of that season. (Barry Bonds' playerid is bondsba01.)
 
--- SELECT playerid,
--- 		yearid,
+-- SELECT
+-- 	playerid,
+-- 	yearid,
 -- 	RANK() OVER(PARTITION BY playerid
 -- 					  ORDER BY yearid) AS num_seasons_played,
 -- 	SUM(hr) OVER(PARTITION BY playerid
@@ -47,7 +49,8 @@
 -- NOTE: have to use dense rank as some players switch teams and appear multiple times for same season
 
 -- WITH ranked_players AS (
--- 	SELECT playerid,
+-- 	SELECT
+--		playerid,
 -- 		yearid,
 -- 		DENSE_RANK() OVER(PARTITION BY playerid
 -- 						  ORDER BY yearid) AS num_seasons_played,
@@ -57,8 +60,9 @@
 -- 	WHERE playerid <> 'bondsba01'
 -- ),
 -- ranked_bondsba AS (
--- 	SELECT playerid,
--- 			yearid,
+-- 	SELECT
+--		playerid,
+-- 		yearid,
 -- 		RANK() OVER(PARTITION BY playerid
 -- 						  ORDER BY yearid) AS num_seasons_played,
 -- 		SUM(hr) OVER(PARTITION BY playerid
@@ -67,7 +71,7 @@
 -- 	WHERE playerid = 'bondsba01'
 -- )
 -- SELECT COUNT(DISTINCT rp.playerid)
--- 	/* these rows were for verification
+-- 	/* these rows were used for verification
 -- 	rp.num_seasons_played,
 -- 	rp.career_total_hr,
 -- 	rb.bonds_total_hr*/
@@ -82,7 +86,8 @@
 -- a: yes, aaronha01, or, Hank Aaron
 
 -- WITH ranked_players AS (
--- 	SELECT playerid,
+-- 	SELECT
+--		playerid,
 -- 		yearid,
 -- 		DENSE_RANK() OVER(PARTITION BY playerid
 -- 						  ORDER BY yearid) AS num_seasons_played,
@@ -120,7 +125,8 @@
 -- Find the player who had the most anomalous season in terms of number of home runs hit. To do this, find the player who has the largest gap between the number of home runs hit in a season and the 5-year moving average number of home runs if we consider the 5-year window centered at that year (the window should include that year, the two years prior and the two years after).
 -- a: trumbma01 with 33.20
 
--- SELECT playerid,
+-- SELECT 
+--		playerid,
 -- 		yearid,
 -- 		hr,
 -- 		DENSE_RANK() OVER(PARTITION BY playerid
@@ -165,7 +171,7 @@
 
 --#### Question 4b: 
 --Some players start and end their careers with the same team but play for other teams in between. For example, Barry Zito started his career with the Oakland Athletics, moved to the San Francisco Giants for 7 seasons before returning to the Oakland Athletics for his final season. How many players played at least 10 years in the league and start and end their careers with the same team but played for at least one other team during their career? For this question, exclude any players who played in the 2016 season.
--- a: I think 200
+-- a: 200
 
 -- WITH long_career AS (
 -- 	SELECT
@@ -227,7 +233,7 @@
 
 -- #### Question 5b: 
 -- What is the longest steak of a team winning the World Series? Write a query that produces this result rather than scanning the output of your previous answer.
--- a: kind of cheating by slowly adding lag .. 5 years in a row for NYA
+-- a: slowly adding lag .. 5 years in a row for NYA
 
 -- WITH team_wins AS (
 -- 	SELECT
@@ -248,7 +254,6 @@
 -- 	AND wswin_2nd_last = 'Y'
 -- 	AND wswin_3rd_last = 'Y'
 -- 	AND wswin_4th_last = 'Y'
-
 
 -- #### Question 5c: 
 -- A team made the playoffs in a year if either divwin, wcwin, or lgwin will are equal to 'Y'. Which team has the longest streak of making the playoffs? 

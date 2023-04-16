@@ -1,7 +1,7 @@
 -- 1. Find all players in the database who played at Vanderbilt University. Create a list showing each player's first and last names as well as the total salary they earned in the major leagues. Sort this list in descending order by the total salary earned. Which Vanderbilt player earned the most money in the majors?
 -- a: David Price with $81 million USD!
 
-/* using code below I waws able to find out Vanderbilt University is called 'vandy'
+/* using code below I found out Vanderbilt University is called 'vandy'
 INNER JOIN schools
 USING(schoolid)
 WHERE schoolname='Vanderbilt University';
@@ -38,10 +38,6 @@ WHERE schoolname='Vanderbilt University';
 -- 		WHEN pos IN ('P', 'C') THEN 'Battery'
 -- 		END AS position_group,
 -- 	SUM(po) AS total_putout
--- /* this part was superfluous!
--- FROM people
--- --LEFT JOIN fielding
--- USING(playerid)*/
 -- FROM fielding
 -- WHERE yearid = 2016
 -- GROUP BY position_group;
@@ -72,9 +68,9 @@ WHERE schoolname='Vanderbilt University';
 -- ORDER BY decade;
 
 -- 4. Find the player who had the most success stealing bases in 2016, where __success__ is measured as the percentage of stolen base attempts which are successful. (A stolen base attempt results either in a stolen base or being caught stealing.) Consider only players who attempted _at least_ 20 stolen bases. Report the players' names, number of stolen bases, number of attempts, and stolen base percentage.
--- note: attempts are stolen bases (sb) + caught stealing (cs). By groupingby playerid I also ensured that the resulting join with those limits doesn't have duplicate players (when they played for multiple teams)
--- A: Chris Owings
--- NOTE, needed to group in batting because same player might change teams
+-- NOTE: attempts are stolen bases (sb) + caught stealing (cs). By groupingby playerid I also ensured that the resulting join with those limits doesn't have duplicate players (when they played for multiple teams)
+-- a: Chris Owings
+-- NOTE2:, needed to group in batting because same player might change teams
 
 -- WITH full_batting AS(
 -- 	SELECT
@@ -100,9 +96,9 @@ WHERE schoolname='Vanderbilt University';
 
 
 -- 5. From 1970 to 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion; determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 to 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
--- A: largest wins while not winning world 116, smallest wins while winning world is 63 
+-- a: largest wins while not winning world 116, smallest wins while winning world is 63 
 -- Found out that the strange year was 1981 - In 1981 major league baseball shut down for 50 days from June 12 to August 10. During that time a total of 713 games were lost. The reason behind the strike was free agent player compensation.
--- A: I believe that 12 times the team with most wins also won the world series; 23% of the time
+-- a: 12 times the team with most wins also won the world series; 23% of the time
 
 -- SELECT MAX(W)
 -- FROM teams
@@ -149,6 +145,7 @@ WHERE schoolname='Vanderbilt University';
 
 
 -- 6. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
+-- a: Jim Leyland, Davey Johnson
 
 -- SELECT
 -- 	namefirst || ' ' || namelast AS full_name,
@@ -173,8 +170,9 @@ WHERE schoolname='Vanderbilt University';
 
 -- 7. Which pitcher was the least efficient in 2016 in terms of salary / strikeouts? Only consider pitchers who started at least 10 games (across all teams). Note that pitchers often play for more than one team in a season, so be sure that you are counting all stats for each player.
 
--- the code below is wrong, because for some reason some players don't have reported salaries for certain teamms that they played on! so you have to group by playerid in each table separately
-/*SELECT 
+/*
+My original solution, the code below, was incorrect - for some reason some players don't have reported salaries for certain teamms that they played on! so we have to group by playerid in each table separately
+SELECT 
 	playerid,
 	SUM(so) AS tot_strikeouts,
 	SUM(salary)::numeric::money AS tot_salary,
@@ -264,7 +262,7 @@ ORDER BY salary_strike DESC;
 -- HAVING COUNT(*) > 1;
 
 --10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
--- a: I might have to double check this complex ex!
+-- a: run the query, 9 players
 
 -- at least one hr in 2016, 542 players
 -- WITH hr_in_2016 AS (
